@@ -53,4 +53,4 @@ Energy_apps
 residual, mean, std, percent = Metrics.E_filt(aggregated, filtered, msg = True)
 Graphs.draw(residual)
 
-residuals, percents = Metrics.E_filt_apps(sub_test[:6*60], individual_filt)
+residuals, percents = Metrics.E_filt_apps(test[:6*60], individual_filt)
