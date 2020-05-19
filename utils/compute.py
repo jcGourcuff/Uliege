@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 
-class Functions():
+class Functions:
     """
     This class implements a few useful functions.
     """
@@ -79,18 +79,15 @@ class Metrics():
     @staticmethod
     def E(serie, msg=False):
         """
-        Integretates the serie with respect to the time. Thus returns the total energie
-        consumed in the time window of the serie.
+        Integrates the series with respect to the time. Thus returns the total energy
+        consumed in the time window of the series.
 
         :param serie: Pandas Series. The power to integrate.
         :param msg: If True, calling the function will display the result.
         :return: Integer. The result rounded to the unit.
         """
-        dt = 60
 
         x = serie.values
-        ind = serie.index
-        dx = [np.mean([x[k + 1], x[k]]) for k in range(len(x) - 1)]
         total_power = np.sum(x) * 60 / 3600
         if msg:
             print(str(total_power) + " Wh")

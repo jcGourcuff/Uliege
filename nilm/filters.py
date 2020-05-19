@@ -22,7 +22,8 @@ class Filters():
         return None
 
     @staticmethod
-    def apply_df_filter(df, sigma_r=60, nb_iter=2, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10, sharp_rate=.75, med_k_size=3, bil_k_size=3, sigma_s=5):
+    def apply_df_filter(df, sigma_r=60, nb_iter=2, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10, sharp_rate=.75,
+                        med_k_size=3, bil_k_size=3, sigma_s=5):
         """
         Applies Filters.apply_filters() on all columns.
 
@@ -34,7 +35,8 @@ class Filters():
         filtered = []
         for name in df.columns:
             _, _, result = Filters.apply_filters(
-                df[name], sigma_r, nb_iter, flat_tresh, sharp_tresh, min_sharp_tresh, sharp_rate, med_k_size, bil_k_size, sigma_s)
+                df[name], sigma_r, nb_iter, flat_tresh, sharp_tresh, min_sharp_tresh, sharp_rate, med_k_size,
+                bil_k_size, sigma_s)
             filtered.append(result)
         new_df = pd.concat(filtered, axis=1)
         new_df.index = df.index
@@ -61,7 +63,8 @@ class Filters():
         return x
 
     @staticmethod
-    def apply_filters(input, nb_iter=2, sigma_r=60, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10, sharp_rate=.75, med_k_size=3, bil_k_size=3, sigma_s=5, show=False):
+    def apply_filters(input, nb_iter=2, sigma_r=60, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10, sharp_rate=.75,
+                      med_k_size=3, bil_k_size=3, sigma_s=5, show=False):
         """
         Applies the complete filter framework to the input. The signal goes through
         a median filter and bilateral filtering and sharpening for nb_iter times.
@@ -163,7 +166,7 @@ class Filters():
             factor = 0
             sum = 0
             for l in range(max(0, k - window_size), min(len(input), k + window_size)):
-                a = Gs(np.abs(timestamps[k] - timestamps[l])
+                a = Gs(np.abs(timestamps[k] - timestamps[l]).seconds / 60
                        ) * Gr(np.abs(input[k] - input[l]))
                 factor += a
                 sum += a * input[l]
