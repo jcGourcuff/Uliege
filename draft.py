@@ -5,7 +5,7 @@ from utils.display import Graphs
 import matplotlib.pyplot as plt
 from dataManager.load import DataSets
 from nilm.filters import Filters
-from utils.compute import Metrics_filt
+from utils.compute import Metrics
 from utils.compute import Functions
 
 df = DataSets.REDD(1)
@@ -18,7 +18,7 @@ nb_iter = 1000
 nb_app = 10
 index_max = sampled.shape[0]
 
-M = Metrics_filt()
+M = Metrics()
 
 means = []
 stds = []
