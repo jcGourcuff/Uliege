@@ -22,7 +22,8 @@ class Filters():
         return None
 
     @staticmethod
-    def apply_df_filter(df, sigma_r=60, nb_iter=2, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10, sharp_rate=.75, med_k_size=3, bil_k_size=3, sigma_s=5):
+    def apply_df_filter(df, sigma_r=60, nb_iter=2, flat_tresh=10, sharp_tresh=60,
+                        min_sharp_tresh=10, sharp_rate=.75, med_k_size=3, bil_k_size=3, sigma_s=5):
         """
         Applies Filters.apply_filters() on all columns.
 
@@ -61,7 +62,8 @@ class Filters():
         return x
 
     @staticmethod
-    def apply_filters(input, nb_iter=2, sigma_r=60, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10, sharp_rate=.75, med_k_size=3, bil_k_size=3, sigma_s=5, show=False):
+    def apply_filters(input, nb_iter=2, sigma_r=60, flat_tresh=10, sharp_tresh=60, min_sharp_tresh=10,
+                      sharp_rate=.75, med_k_size=3, bil_k_size=3, sigma_s=5, early_stop = True, stop_criterion = 1., show=False):
         """
         Applies the complete filter framework to the input. The signal goes through
         a median filter and bilateral filtering and sharpening for nb_iter times.
@@ -71,6 +73,8 @@ class Filters():
         :param min_sharp_tresh: Minimum value for the sharpenning treshold.
         :param sharpe_rate: Float. Sharpening treshold decrease rate.
         :param show: Boolean. If True, evolution of signal through filtering is shown after the function call.
+        :param early_stop: Boolean. If True, stop the iteration when two successives filtering process yield an error below stop_criterion.
+        :param stop_criterion: Any number. See eraly_stop.
         :return: (Pandas Series, list, Pandas Series). The residuals, the mean
                  squarred errors between to consecutive filtering step and the filtered signal.
 
@@ -97,6 +101,8 @@ class Filters():
             x = Filters.bilat_sharp(
                 x, bil_k_size=bil_k_size, sigma_s=sigma_s, sigma_r=sigma_r, sharpen=level)
             error = x - last
+            if early_stop and len(filt_loss) > 0 and filt_loss[-1]<stop_criterion and error.std() < stop_criterion :
+                break
             filt_loss.append(error.std())
             last = x
 
@@ -138,7 +144,12 @@ class Filters():
         :param kernel_size: Integer. Size of the filter kernel.
         :return: Numpy arry. Filtered signal.
         """
-        return medfilt(input, kernel_size=kernel_size)
+        input = np.array(input)
+        new = list(input[:kernel_size//2])
+        for k in range(kernel_size//2, len(input)-kernel_size//2):
+            new.append(np.median(input[k-kernel_size//2:k+kernel_size//2+1]))
+        new.extend(input[-kernel_size//2 + 1:])
+        return np.array(new)
 
     @staticmethod
     def bilateral_filter(input, timestamps, sigma_s, sigma_r, kernel_size):
@@ -148,8 +159,8 @@ class Filters():
 
         :param: input: Numpy array. The data to filter.
         :param timestamps: Numpy array. The timestamps of the data.
-        :param sigma_s: Caracteristic window range. (Note : Caracteristic window range is in fact sigma_s*kernel_size)
-        :param sigma_r: Caracteristic power difference under which the signal is smoothed.
+        :param sigma_s: Characteristic window range. (Note : Caracteristic window range is in fact sigma_s*kernel_size)
+        :param sigma_r: Characteristic power difference under which the signal is smoothed.
         :param kernel_size: Integer. Size of the base kernel.
         :return: Numpy array. The filtered signal.
 
@@ -163,7 +174,7 @@ class Filters():
             factor = 0
             sum = 0
             for l in range(max(0, k - window_size), min(len(input), k + window_size)):
-                a = Gs(np.abs(timestamps[k] - timestamps[l])
+                a = Gs(np.abs(timestamps[k] - timestamps[l]).seconds/60
                        ) * Gr(np.abs(input[k] - input[l]))
                 factor += a
                 sum += a * input[l]
@@ -213,3 +224,106 @@ class Filters():
 
         filtered.append(filtered[-1])
         return np.array(filtered)
+
+
+class Filter_tuning:
+    """
+    This class provides tools to select the optimal parameters for the filter pipeline.
+
+    When doing a grid search :
+    If dataset with all appliances available, grid_search does :
+        - grid search performed on all individual appliances
+        - best parameters for each appliance are merged to form new grid
+        - grid search performed on aggregated power alone
+
+    Else, use grid_search_one_serie.
+    """
+
+    def __init__(self):
+        """
+        This class provides static methods only.
+        """
+        return None
+
+
+    @staticmethod
+    def grid_search_one_serie(param_grid, serie,  n_window, window_size, metric_func):
+        """
+        Performs a grid_search on the serie.
+        Filter is evaluted on n_window, for each of these windows we evalute on each parameters.
+
+        :param param_grid: Dictionnary. Set of parameters to tune.
+        :param serie: Pandas Series. The data to perform the grid_search on.
+        :param n_window: Integer. Number of windows on which the grid_search will be done.
+        :param window_size: Integer. The size of the said windows.
+        :return: (list, list, list) with respectively the best param for each window,
+                 the corresponding mse, and the windows low and high index.
+        """
+        best_params = []
+        best_metrics = []
+        windows = []
+        for k in range(n_window):
+            data = Functions.get_window(serie, window_size)
+
+            it = Functions.iter_param(param_grid)
+            best_param = next(it)
+            _, _, output = Filters.apply_filters(data, early_stop = True, **best_param)
+            best_metric = metric_func(data, output)
+            while True :
+                try :
+                    params = next(it)
+                except StopIteration :
+                    break
+
+                _, _, output = Filters.apply_filters(data, **params)
+                metric = metric_func(data, output)
+                if metric < best_metric :
+                    best_metric = metric
+                    best_param = params
+
+            best_params.append(best_param)
+            best_metrics.append(best_metric)
+            windows.append((data.index[0], data.index[-1]))
+        return best_params, best_metrics, windows
+
+
+
+    @staticmethod
+    def grid_search(param_grid, df, n_window, window_size, metric_func):
+        """
+        Performs grid search on df. See the class description for more info.
+
+        :param df: Pandas DataFrame. Appliances in a DataFrame.
+        :return: (list, list, list) with respectively the best param for each final window,
+                 the corresponding mse, and the windows low and high index.
+
+        ..sealso Filters_tuning.grid_search_one_serie()
+        """
+        to_explore = []
+        for app in df.columns :
+            print("Fitting "+app+"...", end = '\r')
+            best_params, _, _= Filter_tuning.grid_search_one_serie(param_grid, df[app], 1, window_size, metric_func)
+            to_explore.append(Functions.merge_dict(best_params))
+        print("Fitting aggregated...", end = '\r')
+        new_grid = Functions.merge_dict(to_explore)
+        aggregate = df.sum(axis=1)
+        return  Filter_tuning.grid_search_one_serie(new_grid, aggregate, n_window, window_size, metric_func)
+
+    @staticmethod
+    def evaluate(params, serie, n_window, window_size, metric_func):
+        """
+        Evaluate the filter pipeline with the given parameters on the given data.
+
+        :param params: Dictionnary. The parameters.
+        :param serie: Pandas Series. The data.
+        :param n_window: Integer. Number of windows on which the evaluation will be done.
+        :param window_size: Integer. The size of the said windows.
+        """
+        windows = []
+        metrics = []
+        for k in range(n_window):
+            data = Functions.get_window(serie, window_size)
+            _, _, output = Filters.apply_filters(data, **params)
+            windows.append((data.index[0], data.index[-1]))
+            metrics.append(metric_func(data, output))
+        return metrics, windows
