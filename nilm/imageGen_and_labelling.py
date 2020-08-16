@@ -34,12 +34,9 @@ color_codes = {'residuals': [0, 0, 0],
                'lighting': [196, 0, 255],
                'washer_dryer': [102, 51, 0],
                'microwave': [255, 153, 255],
-               'bathroom_gfi': [160, 160, 160]}
+               'bathroom_gfi': [160, 160, 160],
+               'unknown': [0, 0, 0]}
 
-
-"""
-MAJOR ISSUES : code do not generlize well to other window_size/ sampling rate
-"""
 
 Window_size = 1440
 Cons_Mx = 6000
